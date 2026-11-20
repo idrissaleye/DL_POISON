@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# PyCharm / IDE
+.idea/
+.vscode/
+
+# Artefacts d'exécution (dataset, modèles, historique)
+data/
+
+# OS
+Thumbs.db
+.DS_Store

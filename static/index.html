@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdversarialLab — Robustesse des IA</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">🛡️</span>
+    <div>
+      <h1>AdversarialLab</h1>
+      <p>Simulation d'attaques adversariales &amp; défenses — Robustesse des IA</p>
+    </div>
+  </div>
+  <div class="header-badges">
+    <span id="badge-device" class="badge">…</span>
+    <span id="badge-dataset" class="badge warn">Dataset ✗</span>
+    <span id="badge-model" class="badge warn">Modèle ✗</span>
+    <select id="model-select" title="Modèle actif" disabled></select>
+  </div>
+</header>
+
+<div id="job-bar" class="job-bar hidden">
+  <div class="job-info"><span id="job-name"></span><span id="job-message"></span></div>
+  <div class="progress-track"><div id="job-progress" class="progress-fill"></div></div>
+</div>
+
+<nav>
+  <button class="tab active" data-tab="setup">1 · Données &amp; Modèle</button>
+  <button class="tab" data-tab="eval">2 · Évaluation</button>
+  <button class="tab" data-tab="evasion">3 · Évasion</button>
+  <button class="tab" data-tab="poison">4 · Empoisonnement</button>
+  <button class="tab" data-tab="defense">5 · Défenses</button>
+  <button class="tab" data-tab="history">6 · Récapitulatif</button>
+</nav>
+
+<main>
+
+  <!-- ============================ 1. DONNÉES & MODÈLE ============================ -->
+  <section id="tab-setup" class="panel active">
+    <div class="card">
+      <h2>Étape 1 — Générer le dataset synthétique</h2>
+      <p class="hint">Images de formes (cercle, carré, triangle, croix) générées localement et aléatoirement.
+        Aucun téléchargement externe. Taille par défaut ≈ 40 Mo, très loin de la limite de 2 Go.</p>
+      <div class="form-row">
+        <label>Images par classe <input id="ds-n" type="number" value="2000" min="200" max="5000" step="100"></label>
+        <label>Taille image
+          <select id="ds-size"><option value="32">32×32</option><option value="64" selected>64×64</option><option value="96">96×96</option></select>
+        </label>
+        <label>Graine (seed) <input id="ds-seed" type="number" value="42"></label>
+        <button id="btn-generate" class="primary">Générer le dataset</button>
+      </div>
+      <div id="ds-info" class="info-line hidden"></div>
+      <div id="ds-samples" class="img-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Étape 2 — Entraîner le modèle de classification (CNN)</h2>
+      <p class="hint">Entraîne un CNN propre sur les données normales. ~10 s sur GPU, ~1 min sur CPU.</p>
+      <div class="form-row">
+        <label>Époques <input id="tr-epochs" type="number" value="8" min="1" max="40"></label>
+        <label>Taux d'apprentissage <input id="tr-lr" type="number" value="0.001" step="0.0005"></label>
+        <label>Batch <input id="tr-batch" type="number" value="128" min="16" max="512"></label>
+        <button id="btn-train" class="primary">Entraîner le modèle</button>
+      </div>
+      <div class="charts">
+        <div class="chart-box"><canvas id="chart-training"></canvas></div>
+        <div id="train-metrics" class="metric-row"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 2. ÉVALUATION ============================ -->
+  <section id="tab-eval" class="panel">
+    <div class="card">
+      <h2>Évaluation du modèle sur données normales</h2>
+      <p class="hint">Précision du modèle actif sur le jeu de test sain : matrice de confusion,
+        précision/rappel/F1 par classe et exemples de prédictions.</p>
+      <button id="btn-evaluate" class="primary">Lancer l'évaluation</button>
+      <div id="eval-metrics" class="metric-row hidden"></div>
+      <div class="two-col">
+        <div><h3>Matrice de confusion</h3><div id="confusion"></div></div>
+        <div><h3>Métriques par classe</h3><table id="per-class" class="data-table"></table></div>
+      </div>
+      <h3>Exemples de prédictions</h3>
+      <div id="eval-samples" class="img-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============================ 3. ÉVASION ============================ -->
+  <section id="tab-evasion" class="panel">
+    <div class="card">
+      <h2>Attaque par évasion</h2>
+      <p class="hint">Le modèle est <b>finalement entraîné</b> — on perturbe uniquement les <b>entrées</b> pour le duper.
+        FGSM = 1 pas rapide · PGD = itératif (le plus efficace) · Bruit gaussien = baseline aléatoire.</p>
+      <div class="form-row">
+        <label>Modèle
+          <select id="ev-model" class="model-picker"></select>
+        </label>
+        <label>Méthode
+          <select id="ev-method">
+            <option value="fgsm">FGSM</option>
+            <option value="pgd" selected>PGD</option>
+            <option value="noise">Bruit gaussien</option>
+          </select>
+        </label>
+        <label>Force ε <input id="ev-eps" type="number" value="0.15" min="0.01" max="1" step="0.01"></label>
+        <label>Itérations (PGD) <input id="ev-iters" type="number" value="7" min="1" max="50"></label>
+        <button id="btn-attack" class="danger">⚔️ Lancer l'attaque</button>
+      </div>
+      <div class="eps-presets">
+        ε rapide : <button data-eps="0.03">0.03</button> <button data-eps="0.1">0.1</button>
+        <button data-eps="0.15">0.15</button> <button data-eps="0.3">0.3</button> <button data-eps="0.45">0.45</button>
+      </div>
+      <div id="ev-metrics" class="metric-row hidden"></div>
+      <h3>Exemples d'images adversariales</h3>
+      <div id="ev-images" class="attack-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Courbe précision vs force d'attaque (ε)</h2>
+      <p class="hint">Montre la dégradation du modèle quand ε augmente, pour chaque méthode.
+        La courbe PGD qui plonge vite = vulnérabilité typique.</p>
+      <div class="form-row">
+        <label>ε max <input id="cv-epsmax" type="number" value="0.45" min="0.05" max="1" step="0.05"></label>
+        <label>Points <input id="cv-points" type="number" value="8" min="3" max="12"></label>
+        <label>Échantillons <input id="cv-subset" type="number" placeholder="auto (GPU 1000 / CPU 400)"></label>
+        <button id="btn-curve" class="primary">Tracer les courbes</button>
+      </div>
+      <div class="chart-box tall"><canvas id="chart-curve"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ============================ 4. EMPOISONNEMENT ============================ -->
+  <section id="tab-poison" class="panel">
+    <div class="card">
+      <h2>Attaque par empoisonnement des données</h2>
+      <p class="hint">Cette fois on corrompt <b>les données d'entraînement</b> puis on ré-entraîne :
+        c'est le modèle lui-même qui devient vulnérable.
+        <br>• <b>Retournement d'étiquettes</b> : une fraction des labels est modifiée.
+        <br>• <b>Porte dérobée (backdoor)</b> : un motif déclencheur est collé sur des images relabelées vers la classe cible ;
+        à l'inférence, toute image portant le motif est classée « cible ».</p>
+      <div class="form-row">
+        <label>Type
+          <select id="po-type"><option value="backdoor" selected>Backdoor (trigger)</option><option value="flip">Retournement d'étiquettes</option></select>
+        </label>
+        <label>Proportion <input id="po-ratio" type="number" value="0.15" min="0.01" max="0.5" step="0.01"></label>
+        <label>Classe cible
+          <select id="po-target"></select>
+        </label>
+        <label>Époques <input id="po-epochs" type="number" value="6" min="1" max="40"></label>
+        <button id="btn-poison" class="danger">☣️ Empoisonner &amp; ré-entraîner</button>
+      </div>
+      <div id="po-metrics" class="metric-row hidden"></div>
+      <h3>Exemples d'exemples empoisonnés (entraînement)</h3>
+      <div id="po-images" class="img-grid-caption"></div>
+    </div>
+  </section>
+
+  <!-- ============================ 5. DÉFENSES ============================ -->
+  <section id="tab-defense" class="panel">
+    <div class="card">
+      <h2>🛡️ Défense 1 — Prétraitements d'entrée (contre l'évasion)</h2>
+      <p class="hint">Sans ré-entraînement : on « nettoie » les entrées (quantification, flou, médian, JPEG)
+        pour détruire la perturbation. Mesure : précision sous attaque avec et sans défense.</p>
+      <div class="form-row">
+        <label>Prétraitement
+          <select id="dp-method">
+            <option value="quantification">Quantification 4 niveaux</option>
+            <option value="flou">Flou gaussien 3×3</option>
+            <option value="median">Filtre médian</option>
+            <option value="jpeg" selected>Compression JPEG</option>
+          </select>
+        </label>
+        <label>Attaque
+          <select id="dp-attack"><option value="pgd" selected>PGD</option><option value="fgsm">FGSM</option><option value="noise">Bruit</option></select>
+        </label>
+        <label>ε <input id="dp-eps" type="number" value="0.15" min="0.01" max="1" step="0.01"></label>
+        <label>Échantillons <input id="dp-subset" type="number" placeholder="auto"></label>
+        <button id="btn-preproc" class="safe">Évaluer la défense</button>
+      </div>
+      <div id="dp-metrics" class="metric-row hidden"></div>
+      <h3>Zoom : propre → adversarial → prétraité</h3>
+      <div id="dp-images" class="attack-grid"></div>
+      <div class="all-preproc">
+        <button id="btn-preproc-all" class="secondary">Comparer TOUS les prétraitements</button>
+        <div class="chart-box"><canvas id="chart-preproc"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🛡️ Défense 2 — Entraînement adversarial (contre l'évasion)</h2>
+      <p class="hint">Ré-entraîne un modèle en injectant des exemples adversariaux dans chaque batch
+        (Madry et al. 2018). Le modèle apprend à rester correct sur les données perturbées.</p>
+      <div class="form-row">
+        <label>Méthode
+          <select id="at-method"><option value="fgsm" selected>FGSM (rapide)</option><option value="pgd">PGD (plus robuste, lent)</option></select>
+        </label>
+        <label>ε <input id="at-eps" type="number" value="0.15" min="0.01" max="1" step="0.01"></label>
+        <label>Époques <input id="at-epochs" type="number" value="8" min="1" max="40"></label>
+        <button id="btn-advtrain" class="safe">Entraîner le modèle robuste</button>
+      </div>
+      <div id="at-results" class="hidden">
+        <div id="at-metrics" class="metric-row"></div>
+        <div class="chart-box"><canvas id="chart-advtrain"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🛡️ Défense 3 — Détection &amp; filtrage des données empoisonnées</h2>
+      <p class="hint">Un modèle entraîné sur des données empoisonnées attribue une <b>perte anormale</b> aux exemples
+        corrompus. On détecte les outliers (seuil statistique z), on les retire, puis on ré-entraîne sur les
+        données nettoyées. Fonctionne après une attaque de l'onglet 4.</p>
+      <div class="form-row">
+        <label>Seuil z <input id="fl-z" type="number" value="1.5" min="1" max="5" step="0.25"></label>
+        <label>Époques <input id="fl-epochs" type="number" value="6" min="1" max="40"></label>
+        <button id="btn-filter" class="safe">Détecter, filtrer, ré-entraîner</button>
+      </div>
+      <div id="fl-results" class="hidden">
+        <div id="fl-metrics" class="metric-row"></div>
+        <div class="chart-box"><canvas id="chart-filter"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 6. RÉCAPITULATIF ============================ -->
+  <section id="tab-history" class="panel">
+    <div class="card">
+      <h2>Récapitulatif des expériences</h2>
+      <p class="hint">Historique de la session (persistant entre redémarrages) : idéal pour copier les
+        résultats dans le rapport.</p>
+      <table id="history-table" class="data-table"></table>
+    </div>
+    <div class="card danger-zone">
+      <h2>Zone dangereuse</h2>
+      <p class="hint">Efface dataset, modèles, historique et fichiers persistés.</p>
+      <button id="btn-reset" class="danger">🗑️ Tout réinitialiser</button>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  AdversarialLab — projet M2SSI « Robustesse des IA » · dataset synthétique local · FGSM / PGD / empoisonnement · défenses : adversarial training, prétraitements, filtrage
+</footer>
+
+<div id="toast" class="toast hidden"></div>
+<script src="vendor/chart.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

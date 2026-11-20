@@ -1,0 +1,13 @@
+# AdversarialLab — dépendances Python (Python 3.10+ recommandé)
+#
+# Sous Linux/WSL, la roue PyPI de torch inclut le support CUDA : le GPU est
+# détecté automatiquement (torch.cuda.is_available()).
+# Installation CPU seule (plus léger) :
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt   (torch déjà satisfait)
+
+torch>=2.0
+numpy>=1.24
+pillow>=10.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
