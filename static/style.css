@@ -249,4 +249,71 @@ footer {
 }
 .toast.ok { border-color: var(--safe); }
 
+/* ---- Onglet Démo live ---- */
+.demo-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 800px) { .demo-layout { grid-template-columns: 1fr; } }
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: var(--panel-2); }
+.drop-zone img { max-width: 100%; max-height: 190px; border-radius: 8px; border: 1px solid var(--border); }
+.file-label {
+  display: inline-block;
+  background: var(--accent-2);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+.file-label:hover { filter: brightness(1.2); }
+.drop-zone input[type=file] { display: none; }
+.mini { font-size: 12px; color: var(--muted); }
+.demo-controls { display: flex; flex-direction: column; gap: 12px; }
+.demo-controls .form-row { margin-bottom: 0; }
+
+.prob-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 60px;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.prob-row b { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.prob-row.win { color: var(--text); font-weight: 700; }
+.prob-row.win span:first-child { color: var(--accent); }
+.prob-track { height: 10px; background: #0a0f16; border-radius: 6px; overflow: hidden; }
+.prob-fill { height: 100%; background: var(--muted); border-radius: 6px; transition: width .4s ease; }
+.prob-row.win .prob-fill { background: var(--accent); }
+
+.button-link {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+}
+h4 { margin: 8px 0 4px; color: var(--text); font-size: 14px; }
+.demo-steps li { margin: 6px 0; line-height: 1.5; }
+
 .hidden { display: none !important; }

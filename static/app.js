@@ -143,6 +143,10 @@ async function refreshOverview() {
   $("btn-preproc-all").disabled = !hasModel;
   $("btn-advtrain").disabled = !hasDs;
   $("btn-filter").disabled = !ds || !ds.poisoned;
+  const demoNeedsImage = !demoImage;
+  $("btn-demo-analyze").disabled = !hasModel || demoNeedsImage;
+  $("btn-demo-attack").disabled = !hasModel || demoNeedsImage;
+  $("btn-demo-export").disabled = !hasDs;
 
   if (currentTab === "history") renderHistory();
   return o;
@@ -578,6 +582,115 @@ $("btn-reset").addEventListener("click", async () => {
     $("ds-samples").innerHTML = "";
     refreshOverview();
   } catch (e) { toast(e.message, true); }
+});
+
+// --------------------------------------------------------------------------- //
+// Onglet 7 : Démo live                                                         //
+// --------------------------------------------------------------------------- //
+
+let demoImage = null; // {b64, name}
+
+const dropZone = $("demo-drop");
+
+function loadDemoFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    demoImage = { b64: reader.result, name: file.name };
+    $("demo-preview").src = reader.result;
+    $("demo-preview").classList.remove("hidden");
+    $("demo-drop-hint").classList.add("hidden");
+    $("demo-name").textContent = file.name;
+    $("demo-result").classList.add("hidden");
+    $("btn-demo-analyze").disabled = false;
+    $("btn-demo-attack").disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+$("demo-file").addEventListener("change", (e) => loadDemoFile(e.target.files[0]));
+dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("drag");
+  loadDemoFile(e.dataTransfer.files[0]);
+});
+dropZone.addEventListener("click", (e) => { if (e.target.tagName !== "LABEL") $("demo-file").click(); });
+
+function probRows(classNames, probs, winIndex) {
+  return classNames
+    .map((n, i) =>
+      `<div class="prob-row ${i === winIndex ? "win" : ""}"><span>${n}</span>` +
+      `<div class="prob-track"><div class="prob-fill" style="width:${(probs[i] * 100).toFixed(1)}%"></div></div>` +
+      `<b>${pct(probs[i])}</b></div>`)
+    .join("");
+}
+
+function renderDemo(r) {
+  const attacked = r.attack.method !== "aucun";
+  $("demo-result").classList.remove("hidden");
+  $("demo-probs-adv-title").textContent = attacked
+    ? `Après attaque (${r.attack.method.toUpperCase()}${r.attack.method === "trigger" ? "" : ", ε=" + r.attack.eps})`
+    : "Après attaque (aucune)";
+  $("demo-probs-clean").innerHTML = probRows(r.class_names, r.clean.probs, r.clean.pred_index);
+  $("demo-probs-adv").innerHTML = probRows(r.class_names, r.attack.probs, r.attack.pred_index);
+
+  let verdict =
+    metricCard("Image originale", `${r.clean.pred} (${pct(r.clean.confidence)})`, "good") +
+    metricCard("Modèle utilisé", r.model, "mid");
+  if (attacked) {
+    verdict =
+      metricCard("Image originale", `${r.clean.pred} (${pct(r.clean.confidence)})`, "good") +
+      metricCard("Après attaque", `${r.attack.pred} (${pct(r.attack.confidence)})`, r.attack.fooled ? "bad" : "good") +
+      metricCard("Verdict", r.attack.fooled ? "❗ DUPÉ" : "✓ résiste", r.attack.fooled ? "bad" : "good") +
+      metricCard("Modèle utilisé", r.model, "mid");
+  }
+  $("demo-verdict").innerHTML = verdict;
+
+  const capOrig = `originale<br>prédit <b>${r.clean.pred}</b> · ${pct(r.clean.confidence)}`;
+  if (attacked) {
+    const verdictCap = r.attack.fooled
+      ? `<b class="doomed">❗ dupé : « ${r.attack.pred} » (${pct(r.attack.confidence)})</b>`
+      : `<b class="victor">✓ résiste : « ${r.attack.pred} »</b>`;
+    $("demo-images").innerHTML =
+      `<div class="attack-set">${imgFig(r.images.original, capOrig)}` +
+      `${imgFig(r.images.adversarial, `modifiée (ε=${r.attack.eps})<br>${verdictCap}`)}` +
+      `${imgFig(r.images.perturbation, "perturbation ×amplifiée")}</div>`;
+  } else {
+    $("demo-images").innerHTML = `<div class="attack-set">${imgFig(r.images.original, capOrig)}</div>`;
+  }
+}
+
+async function demoAnalyze(method) {
+  if (!demoImage) { toast("Chargez d'abord une image.", true); return; }
+  try {
+    setBusy(true);
+    const body = { image_b64: demoImage.b64, method };
+    if (method !== "aucun") {
+      body.eps = +$("demo-eps").value;
+      body.iters = +$("demo-iters").value;
+    }
+    const r = await api("/api/demo/analyze", "POST", body);
+    renderDemo(r);
+  } catch (e) { toast(e.message, true); }
+  finally { setBusy(false); refreshOverview(); }
+}
+
+$("btn-demo-analyze").addEventListener("click", () => demoAnalyze("aucun"));
+$("btn-demo-attack").addEventListener("click", () => demoAnalyze($("demo-method").value));
+
+$("btn-demo-export").addEventListener("click", async () => {
+  try {
+    setBusy(true);
+    const r = await api("/api/demo/export-assets", "POST", { per_class: +$("demo-per-class").value });
+    $("demo-assets-info").classList.remove("hidden");
+    $("demo-assets-info").innerHTML =
+      `✓ ${r.count} images originales exportées dans : <b>${r.folder}</b><br>` +
+      `<span class="mini">Ouvrez ce dossier depuis Windows, puis glissez un fichier dans la zone de dépôt ci-dessus.</span>`;
+    toast("Assets originaux exportés !");
+  } catch (e) { toast(e.message, true); }
+  finally { setBusy(false); refreshOverview(); }
 });
 
 // --------------------------------------------------------------------------- //

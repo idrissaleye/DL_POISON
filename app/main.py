@@ -7,16 +7,20 @@ Interface  :  http://localhost:8000
 
 from __future__ import annotations
 
+import base64
 import threading
+import zipfile
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 import torch
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
 from pydantic import BaseModel, Field
 
 from .ml import attacks, defense
@@ -28,9 +32,10 @@ from .ml.dataset import (
     to_png_uri,
     to_uri_heat,
 )
-from .ml.engine import device_label, evaluate_model, predict, train_model
+from .ml.engine import device_label, evaluate_model, get_device, predict, train_model
 from .ml.model import count_parameters
 from .ml.poison import (
+    apply_trigger,
     backdoor_success_rate,
     poison_backdoor,
     poison_label_flip,
@@ -805,6 +810,156 @@ def api_reset() -> dict:
     for f in (DATA_DIR / "models").glob("*"):
         f.unlink(missing_ok=True)
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Onglet 7 — Démo live (upload d'image + attaque en direct)                     #
+# --------------------------------------------------------------------------- #
+
+
+class DemoAnalyzeParams(BaseModel):
+    image_b64: str                # base64 (avec ou sans préfixe data:)
+    method: str = "pgd"           # aucun | fgsm | pgd | noise | trigger
+    eps: float = Field(0.15, gt=0, le=1.0)
+    iters: int = Field(7, ge=1, le=50)
+
+
+class ExportAssetsParams(BaseModel):
+    per_class: int = Field(8, ge=1, le=50)
+
+
+def _decode_upload(image_b64: str) -> Image.Image:
+    """Décode une image base64 (gère la présence du préfixe data:)."""
+    payload = image_b64.split(",", 1)[-1] if image_b64.startswith("data:") else image_b64
+    try:
+        return Image.open(BytesIO(base64.b64decode(payload)))
+    except Exception as exc:
+        raise HTTPException(400, f"Image illisible : {exc}")
+
+
+@app.post("/api/demo/analyze")
+def api_demo_analyze(params: DemoAnalyzeParams) -> dict:
+    """Classifie une image envoyée par l'utilisateur, puis l'attaque en direct.
+
+    L'image est convertie en niveaux de gris et redimensionnée à la taille du
+    dataset. L'attaque (sauf trigger) est non ciblée : on part du label prédit
+    par le modèle, comme sur une image réelle dont on ne connaît pas la vérité.
+    """
+    ds = require_dataset()
+    require_job_free()
+    target = _resolve_model(None)  # modèle actif
+    entry = STATE.models[target]
+    img_size = int(ds["X_train"].shape[1])
+
+    pil_img = _decode_upload(params.image_b64).convert("L").resize(
+        (img_size, img_size), Image.Resampling.LANCZOS
+    )
+    x0 = np.asarray(pil_img, dtype=np.float32) / 255.0
+    xt = torch.from_numpy(x0).unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
+
+    device = get_device()
+    entry["model"].eval().to(device)
+
+    def _probs(t: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            return torch.softmax(entry["model"](t.to(device)), dim=1)[0].cpu()
+
+    probs_clean = _probs(xt)
+    pred_clean = int(probs_clean.argmax())
+
+    method = params.method
+    if method == "aucun":
+        x_adv = xt.clone()
+    elif method == "trigger":
+        # Backdoor manuelle : on colle le motif déclencheur sur l'image.
+        x_uint8 = (x0 * 255.0).round().clip(0, 255).astype(np.uint8)
+        triggered = apply_trigger(x_uint8[None])[0]
+        x_adv = torch.from_numpy(triggered.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0)
+    elif method in ("fgsm", "pgd", "noise"):
+        # Attaque non ciblée : label de référence = prédiction du modèle.
+        yt = torch.tensor([pred_clean], device=device)
+        attack_fn = attacks.get_attack_fn(method, params.iters, None)
+        x_adv = attack_fn(entry["model"], xt.to(device), yt, params.eps).cpu()
+    else:
+        raise HTTPException(400, f"Méthode inconnue : {method}")
+
+    probs_adv = _probs(x_adv)
+    pred_adv = int(probs_adv.argmax())
+    entry["model"].to("cpu")
+
+    x_adv_np = x_adv.numpy()[0, 0]
+    fooled = None if method == "aucun" else bool(pred_adv != pred_clean)
+    return {
+        "model": target,
+        "img_size": img_size,
+        "class_names": CLASS_NAMES,
+        "clean": {
+            "pred": CLASS_NAMES[pred_clean],
+            "pred_index": pred_clean,
+            "confidence": round(float(probs_clean[pred_clean]), 4),
+            "probs": probs_clean.tolist(),
+        },
+        "attack": {
+            "method": method,
+            "eps": params.eps,
+            "pred": CLASS_NAMES[pred_adv],
+            "pred_index": pred_adv,
+            "confidence": round(float(probs_adv[pred_adv]), 4),
+            "probs": probs_adv.tolist(),
+            "fooled": fooled,
+        },
+        "images": {
+            "original": to_png_uri((x0 * 255.0).round().clip(0, 255).astype(np.uint8)),
+            "adversarial": to_png_uri((x_adv_np.clip(0, 1) * 255.0).round().astype(np.uint8)),
+            "perturbation": to_uri_heat(x_adv_np - x0),
+        },
+    }
+
+
+@app.post("/api/demo/export-assets")
+def api_demo_export_assets(params: ExportAssetsParams) -> dict:
+    """Exporte des images originales du dataset en PNG individuels sur le disque.
+
+    Pratique pour la démo : recharger ensuite un de ces fichiers « originaux »
+    dans l'onglet démo pour classifier puis attaquer en direct.
+    """
+    ds = require_dataset()
+    require_job_free()
+    out_dir = DATA_DIR / "assets_originaux"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    X, y = ds["X_train"], ds["y_train"]
+    files = []
+    for cls, name in enumerate(CLASS_NAMES):
+        idx = np.flatnonzero(y == cls)[: params.per_class]
+        for j, i in enumerate(idx, 1):
+            path = out_dir / f"{name}_{j:02d}.png"
+            Image.fromarray(X[i], mode="L").save(path)
+            files.append(path.name)
+    return {
+        "folder": str(out_dir),
+        "count": len(files),
+        "files": files,
+        "message": f"{len(files)} images originales exportées dans {out_dir}",
+    }
+
+
+@app.get("/api/demo/sample-pack")
+def api_demo_sample_pack() -> Response:
+    """Télécharge un ZIP de 8 images originales par classe."""
+    ds = require_dataset()
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for cls, name in enumerate(CLASS_NAMES):
+            idx = np.flatnonzero(ds["y_train"] == cls)[:8]
+            for j, i in enumerate(idx, 1):
+                img_bytes = BytesIO()
+                Image.fromarray(ds["X_train"][i], mode="L").save(img_bytes, format="PNG")
+                zf.writestr(f"{name}_{j:02d}.png", img_bytes.getvalue())
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="assets_originaux.zip"'},
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -31,6 +31,11 @@ français, pensée pour la démonstration et le rapport.
   données propres, précision/rappel de la détection d'empoisonnement avec histogramme des pertes).
 - **Onglet 6 — Récapitulatif** : historique persistant de toutes les expériences — copier-coller
   direct dans le rapport.
+- **Onglet 7 — Démo live** : chargement d'une **image depuis votre ordinateur** (glisser-déposer),
+  classification en direct avec barres de confiance, puis attaque de cette image (PGD / FGSM /
+  bruit / trigger backdoor) : la prédiction bascule sous vos yeux. Inclut l'**export des assets
+  originaux** (images du dataset en PNG individuels, dans `data/assets_originaux/` ou en ZIP)
+  et un scénario de démonstration guidé de ~3 minutes.
 
 ## 🚀 Démarrage rapide (WSL + GPU)
 
@@ -132,7 +137,7 @@ adversarial-lab/
 │       ├── attacks.py     # FGSM, PGD, bruit gaussien
 │       ├── poison.py      # label flipping, backdoor, succès backdoor
 │       └── defense.py     # adv training, prétraitements, détection/filtrage
-├── static/                # interface web (HTML/CSS/JS vanilla + Chart.js vendu)
+├── static/                # interface web (HTML/CSS/JS vanilla + Chart.js vendu, 7 onglets)
 ├── scripts/smoke_test.py  # test de bout en bout sans serveur
 ├── run.sh                 # démarrage 1 commande (WSL/Linux/macOS)
 ├── .run/                  # configuration d'exécution PyCharm

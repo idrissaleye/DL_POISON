@@ -36,6 +36,7 @@
   <button class="tab" data-tab="poison">4 · Empoisonnement</button>
   <button class="tab" data-tab="defense">5 · Défenses</button>
   <button class="tab" data-tab="history">6 · Récapitulatif</button>
+  <button class="tab" data-tab="demo">7 · Démo live</button>
 </nav>
 
 <main>
@@ -224,6 +225,78 @@
         <div id="fl-metrics" class="metric-row"></div>
         <div class="chart-box"><canvas id="chart-filter"></canvas></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============================ 7. DÉMO LIVE ============================ -->
+  <section id="tab-demo" class="panel">
+    <div class="card">
+      <h2>🖼️ Démo live — chargez une image et attaquez-la en direct</h2>
+      <p class="hint">Chargez une image depuis votre ordinateur (idéalement une image « originale » du
+        dataset, voir l'encadré assets ci-dessous) : le modèle actif la classifie instantanément.
+        Attaquez-la ensuite pour voir la prédiction basculer sous vos yeux — alors que l'œil humain
+        ne perçoit presque rien. Fonctionne aussi avec n'importe quelle photo (la prédiction sera
+        moins pertinente, mais l'attaque fonctionne de la même façon).</p>
+      <div class="demo-layout">
+        <div id="demo-drop" class="drop-zone">
+          <div id="demo-drop-hint">Glissez une image ici<br><span class="mini">ou</span><br>
+            <label class="file-label">Parcourir…<input id="demo-file" type="file" accept="image/*"></label>
+          </div>
+          <img id="demo-preview" class="hidden" alt="aperçu">
+          <div id="demo-name" class="mini"></div>
+        </div>
+        <div class="demo-controls">
+          <button id="btn-demo-analyze" class="primary" disabled>🔍 Classifier l'image</button>
+          <div class="form-row">
+            <label>Attaque
+              <select id="demo-method">
+                <option value="pgd" selected>PGD</option>
+                <option value="fgsm">FGSM</option>
+                <option value="noise">Bruit gaussien</option>
+                <option value="trigger">Trigger backdoor</option>
+              </select>
+            </label>
+            <label>Force ε <input id="demo-eps" type="number" value="0.15" min="0.01" max="1" step="0.01"></label>
+            <label>Itérations <input id="demo-iters" type="number" value="7" min="1" max="50"></label>
+            <button id="btn-demo-attack" class="danger" disabled>⚔️ Attaquer cette image</button>
+          </div>
+        </div>
+      </div>
+      <div id="demo-result" class="hidden">
+        <h3>Confiance du modèle par classe</h3>
+        <div class="two-col">
+          <div><h4>Image originale</h4><div id="demo-probs-clean"></div></div>
+          <div><h4 id="demo-probs-adv-title">Après attaque</h4><div id="demo-probs-adv"></div></div>
+        </div>
+        <div id="demo-verdict" class="metric-row"></div>
+        <div id="demo-images" class="attack-grid"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📦 Assets originaux — images du dataset</h2>
+      <p class="hint">Exporte les images originales du dataset en fichiers PNG individuels (nommés par
+        classe). Rechargez-en une dans l'onglet ci-dessus pendant la démo : c'est un « vrai » échantillon
+        du jeu de test, la classification doit être correcte, puis l'attaque la fait basculer.</p>
+      <div class="form-row">
+        <label>Images par classe <input id="demo-per-class" type="number" value="8" min="1" max="50"></label>
+        <button id="btn-demo-export" class="secondary">💾 Exporter vers le disque</button>
+        <a id="demo-pack-link" class="button-link secondary" href="/api/demo/sample-pack" download>⬇️ Télécharger le ZIP</a>
+      </div>
+      <div id="demo-assets-info" class="info-line hidden"></div>
+    </div>
+
+    <div class="card">
+      <h2>🎭 Scénario de démonstration suggéré (~3 minutes)</h2>
+      <ol class="hint demo-steps">
+        <li><b>Onglet 1</b> — dataset + modèle entraînés (badges verts en haut).</li>
+        <li><b>Onglet 2</b> — évaluer : « le modèle est excellent, 99 % ».</li>
+        <li><b>Ici</b> — exporter les assets, charger une image originale → classification parfaite avec les barres de confiance.</li>
+        <li>Attaquer cette même image (PGD, ε=0.15) → la prédiction bascule ; l'image modifiée semble identique à l'œil (voir la perturbation amplifiée).</li>
+        <li><b>Onglet 4</b> — empoisonner (backdoor 15 %) → succès 100 % alors que la précision reste parfaite.</li>
+        <li><b>Onglet 5</b> — entraînement adversarial et/ou filtrage → la défense tient, chiffres à l'appui.</li>
+        <li><b>Onglet 6</b> — récapitulatif : tous les résultats à copier dans le rapport.</li>
+      </ol>
     </div>
   </section>
 
