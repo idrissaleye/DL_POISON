@@ -44,7 +44,10 @@
   <!-- ============================ 1. DONNÉES & MODÈLE ============================ -->
   <section id="tab-setup" class="panel active">
     <div class="card">
-      <h2>Étape 1 — Générer le dataset synthétique</h2>
+      <div class="card-head">
+        <h2>Étape 1 — Générer le dataset synthétique</h2>
+        <button class="reset-btn" data-reset="setup" title="Efface les résultats de cet onglet pour recommencer">↺ Réinitialiser l'onglet</button>
+      </div>
       <p class="hint">Images de formes (cercle, carré, triangle, croix) générées localement et aléatoirement.
         Aucun téléchargement externe. Taille par défaut ≈ 40 Mo, très loin de la limite de 2 Go.</p>
       <div class="form-row">
@@ -78,7 +81,10 @@
   <!-- ============================ 2. ÉVALUATION ============================ -->
   <section id="tab-eval" class="panel">
     <div class="card">
-      <h2>Évaluation du modèle sur données normales</h2>
+      <div class="card-head">
+        <h2>Évaluation du modèle sur données normales</h2>
+        <button class="reset-btn" data-reset="eval" title="Efface les résultats de cet onglet pour recommencer">↺ Réinitialiser l'onglet</button>
+      </div>
       <p class="hint">Précision du modèle actif sur le jeu de test sain : matrice de confusion,
         précision/rappel/F1 par classe et exemples de prédictions.</p>
       <button id="btn-evaluate" class="primary">Lancer l'évaluation</button>
@@ -95,7 +101,10 @@
   <!-- ============================ 3. ÉVASION ============================ -->
   <section id="tab-evasion" class="panel">
     <div class="card">
-      <h2>Attaque par évasion</h2>
+      <div class="card-head">
+        <h2>Attaque par évasion</h2>
+        <button class="reset-btn" data-reset="evasion" title="Efface les résultats de cet onglet pour recommencer">↺ Réinitialiser l'onglet</button>
+      </div>
       <p class="hint">Le modèle est <b>finalement entraîné</b> — on perturbe uniquement les <b>entrées</b> pour le duper.
         FGSM = 1 pas rapide · PGD = itératif (le plus efficace) · Bruit gaussien = baseline aléatoire.</p>
       <div class="form-row">
@@ -139,7 +148,10 @@
   <!-- ============================ 4. EMPOISONNEMENT ============================ -->
   <section id="tab-poison" class="panel">
     <div class="card">
-      <h2>Attaque par empoisonnement des données</h2>
+      <div class="card-head">
+        <h2>Attaque par empoisonnement des données</h2>
+        <button class="reset-btn" data-reset="poison" title="Efface les résultats de cet onglet pour recommencer">↺ Réinitialiser l'onglet</button>
+      </div>
       <p class="hint">Cette fois on corrompt <b>les données d'entraînement</b> puis on ré-entraîne :
         c'est le modèle lui-même qui devient vulnérable.
         <br>• <b>Retournement d'étiquettes</b> : une fraction des labels est modifiée.
@@ -165,7 +177,10 @@
   <!-- ============================ 5. DÉFENSES ============================ -->
   <section id="tab-defense" class="panel">
     <div class="card">
-      <h2>🛡️ Défense 1 — Prétraitements d'entrée (contre l'évasion)</h2>
+      <div class="card-head">
+        <h2>🛡️ Défense 1 — Prétraitements d'entrée (contre l'évasion)</h2>
+        <button class="reset-btn" data-reset="defense" title="Efface les résultats des trois défenses pour recommencer">↺ Réinitialiser l'onglet</button>
+      </div>
       <p class="hint">Sans ré-entraînement : on « nettoie » les entrées (quantification, flou, médian, JPEG)
         pour détruire la perturbation. Mesure : précision sous attaque avec et sans défense.</p>
       <div class="form-row">
@@ -231,7 +246,10 @@
   <!-- ============================ 7. DÉMO LIVE ============================ -->
   <section id="tab-demo" class="panel">
     <div class="card">
-      <h2>🖼️ Démo live — chargez une image et attaquez-la en direct</h2>
+      <div class="card-head">
+        <h2>🖼️ Démo live — chargez une image et attaquez-la en direct</h2>
+        <button class="reset-btn" data-reset="demo" title="Retire l'image chargée et efface les résultats">↺ Réinitialiser l'onglet</button>
+      </div>
       <p class="hint">Chargez une image depuis votre ordinateur (idéalement une image « originale » du
         dataset, voir l'encadré assets ci-dessous) : le modèle actif la classifie instantanément.
         Attaquez-la ensuite pour voir la prédiction basculer sous vos yeux — alors que l'œil humain

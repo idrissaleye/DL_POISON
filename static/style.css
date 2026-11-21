@@ -316,4 +316,24 @@ footer {
 h4 { margin: 8px 0 4px; color: var(--text); font-size: 14px; }
 .demo-steps li { margin: 6px 0; line-height: 1.5; }
 
+/* Bouton de reinitialisation par onglet */
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.card-head h2 { margin: 0; }
+.reset-btn {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.reset-btn:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+
 .hidden { display: none !important; }

@@ -694,6 +694,69 @@ $("btn-demo-export").addEventListener("click", async () => {
 });
 
 // --------------------------------------------------------------------------- //
+// Réinitialisation par onglet                                                  //
+// --------------------------------------------------------------------------- //
+
+function destroyChart(canvasId) {
+  const existing = Chart.getChart(canvasId);
+  if (existing) existing.destroy();
+}
+
+const TAB_RESETS = {
+  setup: () => {
+    $("ds-info").className = "info-line hidden";
+    $("ds-samples").innerHTML = "";
+    $("train-metrics").innerHTML = "";
+    destroyChart("chart-training");
+  },
+  eval: () => {
+    $("eval-metrics").className = "metric-row hidden";
+    $("confusion").innerHTML = "";
+    $("per-class").innerHTML = "";
+    $("eval-samples").innerHTML = "";
+  },
+  evasion: () => {
+    $("ev-metrics").className = "metric-row hidden";
+    $("ev-images").innerHTML = "";
+    destroyChart("chart-curve");
+  },
+  poison: () => {
+    $("po-metrics").className = "metric-row hidden";
+    $("po-images").innerHTML = "";
+  },
+  defense: () => {
+    $("dp-metrics").className = "metric-row hidden";
+    $("dp-images").innerHTML = "";
+    destroyChart("chart-preproc");
+    $("at-results").classList.add("hidden");
+    $("at-metrics").innerHTML = "";
+    destroyChart("chart-advtrain");
+    $("fl-results").classList.add("hidden");
+    $("fl-metrics").innerHTML = "";
+    destroyChart("chart-filter");
+  },
+  demo: () => {
+    demoImage = null;
+    $("demo-preview").classList.add("hidden");
+    $("demo-preview").removeAttribute("src");
+    $("demo-drop-hint").classList.remove("hidden");
+    $("demo-name").textContent = "";
+    $("demo-result").classList.add("hidden");
+    $("demo-file").value = "";
+  },
+};
+
+function resetTab(name) {
+  const fn = TAB_RESETS[name];
+  if (fn) fn();
+  refreshOverview(); // réapplique l'état (dés)activé des boutons du panneau
+}
+
+document.querySelectorAll(".reset-btn").forEach((btn) =>
+  btn.addEventListener("click", () => resetTab(btn.dataset.reset))
+);
+
+// --------------------------------------------------------------------------- //
 // Init                                                                         //
 // --------------------------------------------------------------------------- //
 
